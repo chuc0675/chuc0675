@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Svara</title>
+  <meta name="theme-color" content="#0b2a24" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- LOBBI -->
+  <section id="lobby" class="screen active">
+    <header class="lobby-top">
+      <div class="me">
+        <div class="avatar" id="meAvatar"></div>
+        <div>
+          <div class="me-name" id="meName">O'yinchi</div>
+          <div class="chips-pill"><span class="chip-ico"></span><b id="lobbyChips">0</b></div>
+        </div>
+      </div>
+      <button class="ghost" id="bonusBtn">🎁 Bonus</button>
+    </header>
+
+    <div class="logo">
+      <div class="fan">
+        <div class="mini-card red">7<small>♥</small></div>
+        <div class="mini-card">7<small>♣</small></div>
+        <div class="mini-card red">7<small>♦</small></div>
+      </div>
+      <h1>SVARA</h1>
+      <p>3 kartali klassik o'yin</p>
+    </div>
+
+    <div class="panel">
+      <label>Raqiblar soni</label>
+      <div class="seg" id="oppSeg">
+        <button data-v="1">1</button><button data-v="2">2</button><button data-v="3" class="on">3</button><button data-v="4">4</button><button data-v="5">5</button>
+      </div>
+      <label>Stavka (ante)</label>
+      <div class="seg" id="anteSeg">
+        <button data-v="10" class="on">10</button><button data-v="50">50</button><button data-v="100">100</button><button data-v="500">500</button>
+      </div>
+      <button class="primary big" id="playBtn">O'ynash</button>
+    </div>
+
+    <details class="panel rules">
+      <summary>Qoidalar</summary>
+      <ul>
+        <li>32 ta karta (7 dan tuzgacha). Har kimga 3 tadan.</li>
+        <li>Qiymat: <b>A</b>=11, <b>K Q J 10</b>=10, <b>9</b>=9, <b>8</b>=8, <b>7</b>=7.</li>
+        <li><b>7♣ — joker</b>: 11 ochko, istalgan mast o'rnida turadi.</li>
+        <li>Ochko — bir xil mastdagi kartalar yig'indisi. Maksimum 33.</li>
+        <li><b>Ikki tuz</b> = 22. <b>Uchta bir xil</b> = 3×qiymat, <b>uchta yettilik</b> = 34 (eng kuchli).</li>
+        <li>Har kim ante tikadi, so'ng navbat bilan: <i>Pas</i>, <i>O'tish/Tenglash</i> yoki <i>Oshirish</i>.</li>
+        <li>Jonli o'yinchilar topilmasa, bo'sh joylarga turli davlatlardan <b>NPC o'yinchilar</b> (kompyuter) o'tiradi.</li>
+        <li>Durang bo'lsa — <b>SVARA</b>: bank qoladi, teng kelganlar qayta o'ynaydi. Boshqalar bankning yarmini to'lab qo'shilishi mumkin.</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- QIDIRUV -->
+  <section id="search" class="screen">
+    <div class="search-box">
+      <div class="radar"><span></span><span></span><span></span><div class="radar-ico">🃏</div></div>
+      <h2 id="searchStatus">Qidirilmoqda…</h2>
+      <p id="searchMeta"></p>
+      <ul class="slots" id="searchList"></ul>
+      <button class="ghost" id="cancelSearch">Bekor qilish</button>
+    </div>
+  </section>
+
+  <!-- STOL -->
+  <section id="table" class="screen">
+    <header class="table-top">
+      <button class="icon" id="backBtn" aria-label="Lobbi">←</button>
+      <div class="chips-pill"><span class="chip-ico"></span><b id="tableChips">0</b></div>
+      <button class="icon" id="soundBtn" aria-label="Tovush">🔊</button>
+    </header>
+
+    <div class="felt-wrap">
+      <div class="felt" id="felt">
+        <div class="pot">
+          <div class="pot-label" id="potLabel">BANK</div>
+          <div class="pot-value" id="potValue">0</div>
+          <div class="pot-sub" id="potSub"></div>
+        </div>
+        <div id="seats"></div>
+      </div>
+    </div>
+
+    <div class="my-area">
+      <div class="my-score" id="myScore"></div>
+      <div class="my-hand" id="myHand"></div>
+      <div class="actions" id="actions"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="modal" id="modal">
+      <div class="modal-card">
+        <h2 id="modalTitle"></h2>
+        <p id="modalText"></p>
+        <div class="modal-btns" id="modalBtns"></div>
+      </div>
+    </div>
+  </section>
+
+  <script src="engine.js"></script>
+  <script src="npc.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
