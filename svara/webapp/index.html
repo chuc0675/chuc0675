@@ -4,110 +4,221 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Svara</title>
-  <meta name="theme-color" content="#0b2a24" />
+  <meta name="theme-color" content="#17080b" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- LOBBI -->
-  <section id="lobby" class="screen active">
-    <header class="lobby-top">
-      <div class="me">
-        <div class="avatar" id="meAvatar"></div>
-        <div>
-          <div class="me-name" id="meName">O'yinchi</div>
-          <div class="chips-pill"><span class="chip-ico"></span><b id="lobbyChips">0</b></div>
-        </div>
-      </div>
-      <button class="ghost" id="bonusBtn">🎁 Bonus</button>
-    </header>
-
-    <div class="logo">
-      <div class="fan">
-        <div class="mini-card red">7<small>♥</small></div>
-        <div class="mini-card">7<small>♣</small></div>
-        <div class="mini-card red">7<small>♦</small></div>
-      </div>
-      <h1>SVARA</h1>
-      <p>3 kartali klassik o'yin</p>
-    </div>
-
-    <div class="panel">
-      <label>Raqiblar soni</label>
-      <div class="seg" id="oppSeg">
-        <button data-v="1">1</button><button data-v="2">2</button><button data-v="3" class="on">3</button><button data-v="4">4</button><button data-v="5">5</button>
-      </div>
-      <label>Stavka (ante)</label>
-      <div class="seg" id="anteSeg">
-        <button data-v="10" class="on">10</button><button data-v="50">50</button><button data-v="100">100</button><button data-v="500">500</button>
-      </div>
-      <button class="primary big" id="playBtn">O'ynash</button>
-    </div>
-
-    <details class="panel rules">
-      <summary>Qoidalar</summary>
-      <ul>
-        <li>32 ta karta (7 dan tuzgacha). Har kimga 3 tadan.</li>
-        <li>Qiymat: <b>A</b>=11, <b>K Q J 10</b>=10, <b>9</b>=9, <b>8</b>=8, <b>7</b>=7.</li>
-        <li><b>7♣ — joker</b>: 11 ochko, istalgan mast o'rnida turadi.</li>
-        <li>Ochko — bir xil mastdagi kartalar yig'indisi. Maksimum 33.</li>
-        <li><b>Ikki tuz</b> = 22. <b>Uchta bir xil</b> = 3×qiymat, <b>uchta yettilik</b> = 34 (eng kuchli).</li>
-        <li>Har kim ante tikadi, so'ng navbat bilan: <i>Pas</i>, <i>O'tish/Tenglash</i> yoki <i>Oshirish</i>.</li>
-        <li>Jonli o'yinchilar topilmasa, bo'sh joylarga turli davlatlardan <b>NPC o'yinchilar</b> (kompyuter) o'tiradi.</li>
-        <li>Durang bo'lsa — <b>SVARA</b>: bank qoladi, teng kelganlar qayta o'ynaydi. Boshqalar bankning yarmini to'lab qo'shilishi mumkin.</li>
-      </ul>
-    </details>
+  <!-- YUKLANISH -->
+  <section id="loading" class="screen active">
+    <div class="fan" id="loadingFan"></div>
+    <div class="brand">SVARA</div>
+    <div class="spinner" style="margin: 18px auto 10px"></div>
+    <div class="muted" id="loadingText">Yuklanmoqda…</div>
   </section>
 
-  <!-- QIDIRUV -->
-  <section id="search" class="screen">
-    <div class="search-box">
-      <div class="radar"><span></span><span></span><span></span><div class="radar-ico">🃏</div></div>
-      <h2 id="searchStatus">Qidirilmoqda…</h2>
-      <p id="searchMeta"></p>
-      <ul class="slots" id="searchList"></ul>
-      <button class="ghost" id="cancelSearch">Bekor qilish</button>
+  <!-- XATO -->
+  <section id="fatal" class="screen">
+    <div style="font-size: 48px">⚠️</div>
+    <h2 id="fatalTitle" style="margin: 10px 0 6px">Xatolik</h2>
+    <p id="fatalText" class="muted" style="max-width: 320px; line-height: 1.45"></p>
+    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 300px; margin-top: 10px">
+      <button class="btn gold" id="fatalRetry">Qayta urinish</button>
+      <button class="btn" id="fatalOffline">Oflayn mashq qilish</button>
+    </div>
+  </section>
+
+  <!-- LOBBI -->
+  <section id="lobby" class="screen">
+    <div class="scroll">
+      <div class="topbar">
+        <div class="avatar" id="meAvatar"></div>
+        <div class="who">
+          <div class="nm" id="meName">O'yinchi</div>
+          <div class="row" style="gap: 6px; margin-top: 3px">
+            <span class="chips-pill"><span class="chip-ico"></span><span id="meBalance">0</span></span>
+            <span class="badge" id="modeBadge">…</span>
+          </div>
+        </div>
+        <button class="btn sm" id="bonusBtn">🎁 Bonus</button>
+      </div>
+
+      <div class="banner hidden" id="offlineBanner">
+        <span>📴</span><span class="grow">Server bilan aloqa yo'q — faqat mashq rejimi. Chiplar shu qurilmada saqlanadi.</span>
+        <button class="btn sm" id="retryOnline">Ulanish</button>
+      </div>
+
+      <div class="hero">
+        <div class="deco" id="heroDeco"></div>
+        <h2>Tez o'yin</h2>
+        <p id="heroText">Bo'sh stolga qo'shiling. Jonli o'yinchi bo'lmasa, NPC'lar o'tiradi.</p>
+        <span class="label" style="color: #f1d7cf">Stavka (ante)</span>
+        <div class="seg" id="anteSeg"></div>
+        <span class="label" style="color: #f1d7cf">Stolda o'yinchilar</span>
+        <div class="seg" id="sizeSeg">
+          <button data-v="2">2</button><button data-v="3">3</button><button data-v="4" class="on">4</button><button data-v="5">5</button><button data-v="6">6</button>
+        </div>
+        <button class="btn gold block" id="quickBtn" style="margin-top: 14px">▶ O'ynash</button>
+      </div>
+
+      <div class="panel online-only">
+        <h3>Do'stlar bilan</h3>
+        <div class="row">
+          <button class="btn blue grow" id="createBtn">＋ Stol yaratish</button>
+        </div>
+        <span class="label">Taklif kodi bilan kirish</span>
+        <div class="row">
+          <input class="text-input grow" id="codeInput" maxlength="6" placeholder="KOD" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" />
+          <button class="btn gold" id="codeBtn">Kirish</button>
+        </div>
+      </div>
+
+      <div class="panel online-only">
+        <h3>Ochiq stollar <button class="btn sm" id="roomsRefresh">↻</button></h3>
+        <div id="roomList"><div class="empty">Yuklanmoqda…</div></div>
+      </div>
+
+      <div class="panel">
+        <h3>Mashq rejimi</h3>
+        <p class="muted small" style="margin: 0 0 10px">Server balansiga ta'sir qilmaydi. NPC'lar bilan oflayn o'ynash.</p>
+        <button class="btn block" id="practiceBtn">🎯 Mashq qilish</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- REYTING -->
+  <section id="leaders" class="screen">
+    <div class="scroll">
+      <h2 style="margin: 4px 0 12px">🏆 Reyting</h2>
+      <div class="seg" id="lbSeg" style="margin-bottom: 12px">
+        <button data-v="net_won" class="on">Yutuq</button><button data-v="wins">G'alaba</button><button data-v="xp">Tajriba</button>
+      </div>
+      <div class="panel" id="lbList"><div class="empty">Yuklanmoqda…</div></div>
+    </div>
+  </section>
+
+  <!-- PROFIL -->
+  <section id="profile" class="screen">
+    <div class="scroll">
+      <div class="topbar">
+        <div class="avatar" id="pAvatar" style="width: 64px; height: 64px; font-size: 24px"></div>
+        <div class="who">
+          <div class="nm" id="pName" style="font-size: 18px"></div>
+          <div class="muted small" id="pUser"></div>
+          <div class="small" style="margin-top: 4px">Daraja <b id="pLevel">1</b> · <span id="pXp" class="muted"></span></div>
+          <div class="xpbar"><i id="pXpBar" style="width: 0"></i></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="stats">
+          <div class="stat"><b id="sBalance">0</b><span>Balans</span></div>
+          <div class="stat"><b id="sGames">0</b><span>O'yinlar</span></div>
+          <div class="stat"><b id="sRate">0%</b><span>G'alaba %</span></div>
+          <div class="stat"><b id="sWins">0</b><span>G'alabalar</span></div>
+          <div class="stat"><b id="sLosses">0</b><span>Mag'lubiyat</span></div>
+          <div class="stat"><b id="sBig">0</b><span>Eng katta yutuq</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Oxirgi o'yinlar</h3>
+        <div id="historyList"><div class="empty">Hali o'yin yo'q</div></div>
+      </div>
+      <div class="panel online-only">
+        <h3>Tranzaksiyalar</h3>
+        <div id="txList"><div class="empty">—</div></div>
+      </div>
+      <button class="btn block hidden" id="adminBtn" style="margin-bottom: 12px">🛠 Admin panel</button>
+    </div>
+  </section>
+
+  <!-- SOZLAMALAR -->
+  <section id="settings" class="screen">
+    <div class="scroll">
+      <h2 style="margin: 4px 0 12px">⚙️ Sozlamalar</h2>
+      <div class="panel">
+        <div class="switch"><span>Ovoz effektlari</span><button class="toggle" id="tSound" aria-label="Ovoz"></button></div>
+        <div class="switch"><span>Tebranish (haptik)</span><button class="toggle" id="tHaptic" aria-label="Tebranish"></button></div>
+      </div>
+      <div class="panel rules">
+        <details open>
+          <summary>O'yin qoidalari</summary>
+          <ul>
+            <li>32 ta karta (7 dan tuzgacha). Har kimga 3 tadan.</li>
+            <li>Qiymat: <b>A</b>=11, <b>K Q J 10</b>=10, <b>9</b>=9, <b>8</b>=8, <b>7</b>=7.</li>
+            <li><b>7♣ — joker</b>: 11 ochko, istalgan mast o'rnida turadi.</li>
+            <li>Ochko — bir xil mastdagi kartalar yig'indisi.</li>
+            <li><b>Ikki tuz</b> = 22. <b>Uchta bir xil</b> = 3 × qiymat. <b>Uchta yettilik</b> = 34 — eng kuchli.</li>
+            <li>Har kim ante tikadi. Navbat bilan: <i>Pas</i>, <i>O'tish / Tenglash</i> yoki <i>Oshirish</i>. Yurish vaqti cheklangan.</li>
+            <li>Ochkolar teng bo'lsa — <b>SVARA</b>: bank qoladi, teng kelganlar qayta o'ynaydi; boshqalar bankning yarmini to'lab qo'shilishi mumkin.</li>
+            <li>Stavka stoldagi eng kam chipli o'yinchining imkoniyatidan oshmaydi.</li>
+            <li>Jonli o'yinchilar bo'lmasa, bo'sh joylarga <b>NPC</b> (kompyuter) o'yinchilar o'tiradi.</li>
+          </ul>
+        </details>
+      </div>
+      <div class="panel small muted">
+        Chiplar virtual — haqiqiy pul ishlatilmaydi va pulga almashtirilmaydi.<br />
+        <span id="aboutVersion"></span>
+      </div>
     </div>
   </section>
 
   <!-- STOL -->
   <section id="table" class="screen">
     <header class="table-top">
-      <button class="icon" id="backBtn" aria-label="Lobbi">←</button>
-      <div class="chips-pill"><span class="chip-ico"></span><b id="tableChips">0</b></div>
-      <button class="icon" id="soundBtn" aria-label="Tovush">🔊</button>
+      <button class="icon-btn" id="leaveBtn" aria-label="Chiqish">←</button>
+      <div class="title"><b id="roomName">Stol</b><small id="roomSub"></small></div>
+      <button class="icon-btn" id="inviteBtn" aria-label="Taklif">📨</button>
     </header>
-
+    <div class="status-line" id="statusLine"></div>
     <div class="felt-wrap">
       <div class="felt" id="felt">
-        <div class="pot">
-          <div class="pot-label" id="potLabel">BANK</div>
-          <div class="pot-value" id="potValue">0</div>
-          <div class="pot-sub" id="potSub"></div>
+        <div class="felt-logo">SVARA</div>
+        <div class="pot" id="pot">
+          <div class="lbl" id="potLbl">BANK</div>
+          <div class="val"><span class="chip-ico"></span><span id="potVal">0</span></div>
+          <div class="sub" id="potSub"></div>
         </div>
         <div id="seats"></div>
       </div>
     </div>
-
     <div class="my-area">
-      <div class="my-score" id="myScore"></div>
-      <div class="my-hand" id="myHand"></div>
-      <div class="actions" id="actions"></div>
-    </div>
-
-    <div class="toast" id="toast"></div>
-
-    <div class="modal" id="modal">
-      <div class="modal-card">
-        <h2 id="modalTitle"></h2>
-        <p id="modalText"></p>
-        <div class="modal-btns" id="modalBtns"></div>
+      <div class="my-info">
+        <span class="chips-pill"><span class="chip-ico"></span><span id="myChips">0</span></span>
+        <span class="my-score" id="myScore"></span>
       </div>
+      <div class="my-hand" id="myHand"></div>
+      <div class="turnbar hidden" id="turnbar"><i id="turnbarFill"></i></div>
+      <div class="actions" id="actions"></div>
     </div>
   </section>
 
+  <nav id="nav" class="hidden">
+    <button data-s="lobby" class="on"><span class="ico">🃏</span>O'yin</button>
+    <button data-s="leaders"><span class="ico">🏆</span>Reyting</button>
+    <button data-s="profile"><span class="ico">👤</span>Profil</button>
+    <button data-s="settings"><span class="ico">⚙️</span>Sozlamalar</button>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal" id="modal">
+    <div class="sheet">
+      <h2 id="modalTitle"></h2>
+      <p id="modalText"></p>
+      <div id="modalBody"></div>
+      <div class="btns" id="modalBtns"></div>
+    </div>
+  </div>
+  <div class="reconnect" id="reconnect">
+    <div class="spinner"></div>
+    <b>Aloqa uzildi</b>
+    <span class="muted" id="reconnectText">Qayta ulanmoqda…</span>
+  </div>
+
+  <script src="config.js"></script>
   <script src="engine.js"></script>
   <script src="npc.js"></script>
+  <script src="net.js"></script>
+  <script src="local.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
