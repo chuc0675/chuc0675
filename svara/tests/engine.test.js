@@ -161,3 +161,69 @@ test('har xil uslubdagi NPC lar bilan o\'yin — chiplar saqlanadi', () => {
     assert.equal(t.players.reduce((s, p) => s + p.chips, 0), total);
   }
 });
+
+/* ---------- qoidalar konfiguratsiyasi va server uchun qo'shimchalar ---------- */
+
+test('qoidalar sozlanadi: joker o\'chirilsa 7♣ oddiy karta', () => {
+  const rules = E.resolveRules({ jokerEnabled: false });
+  assert.equal(E.scoreHand(hand('7♣', 'A♥', 'K♥'), rules), 21);
+  assert.equal(E.scoreHand(hand('7♣', 'A♥', 'K♥')), 32);
+  assert.equal(E.scoreHand(hand('7♠', '7♦', '7♥'), E.resolveRules({ threeSevensScore: 21 })), 21);
+});
+
+test('noto\'g\'ri harakat va navbatdan tashqari harakat rad etiladi', () => {
+  const t = new E.Table({ players: [{ name: 'A', chips: 100 }, { name: 'B', chips: 100 }], ante: 10 }).startHand();
+  assert.throws(() => t.act({ type: 'call' }), /Noto'g'ri/); // tenglash shart emas — check kerak
+  assert.throws(() => t.act({ type: 'raise', to: 9999 }), /Noto'g'ri/);
+  assert.deepEqual(t.legalActions(t.toAct === 0 ? 1 : 0), []); // navbati bo'lmagan o'yinchiga harakat yo'q
+});
+
+test('forceFold: navbatdan tashqari pas va oxirgi qolgan yutadi', () => {
+  const t = new E.Table({ players: [{ id: 'a', name: 'A', chips: 100 }, { id: 'b', name: 'B', chips: 100 }, { id: 'c', name: 'C', chips: 100 }], ante: 10 }).startHand();
+  const notTurn = t.players.filter((_, i) => i !== t.toAct);
+  assert.ok(t.forceFold(notTurn[0].id, 'Chiqdi'));
+  assert.equal(t.phase, 'betting');
+  assert.ok(t.forceFold(notTurn[1].id, 'Chiqdi'));
+  assert.equal(t.phase, 'over');
+  assert.equal(t.players.reduce((s, p) => s + p.chips, 0), 300);
+});
+
+test('addPlayer / removePlayer qo\'llar orasida ishlaydi, qo\'l davomida rad etiladi', () => {
+  const t = new E.Table({ players: [{ id: 'a', name: 'A', chips: 100 }, { id: 'b', name: 'B', chips: 100 }], ante: 10 });
+  t.addPlayer({ id: 'c', name: 'C', chips: 100 });
+  assert.throws(() => t.addPlayer({ id: 'c', name: 'C', chips: 1 }));
+  t.startHand();
+  assert.throws(() => t.removePlayer('a'));
+  while (t.phase === 'betting') t.act({ type: 'fold' });
+  t.removePlayer('c');
+  assert.equal(t.players.length, 2);
+});
+
+test('maxSvaraRounds dan keyin bank bo\'linadi', () => {
+  const t = new E.Table({ players: [{ id: 'a', name: 'A', chips: 100 }, { id: 'b', name: 'B', chips: 100 }], ante: 10, rules: { maxSvaraRounds: 1 } }).startHand();
+  const tie = () => {
+    t.players[0].cards = hand('A♥', 'K♥', '8♠');
+    t.players[1].cards = hand('A♠', 'K♠', '8♦');
+    while (t.phase === 'betting') t.act({ type: 'check' });
+  };
+  tie();
+  assert.equal(t.phase, 'svara');
+  t.startSvara();
+  tie();
+  assert.equal(t.phase, 'over');
+  assert.equal(t.result.type, 'split');
+  assert.deepEqual(t.players.map((p) => p.chips), [100, 100]);
+});
+
+test('harakatlar tarixi yoziladi', () => {
+  const t = new E.Table({ players: [{ id: 'a', name: 'A', chips: 100 }, { id: 'b', name: 'B', chips: 100 }], ante: 10 }).startHand();
+  t.act({ type: 'fold' });
+  assert.deepEqual(t.actions.map((a) => a.type), ['ante', 'ante', 'fold']);
+});
+
+test('secureRandom [0,1) oralig\'ida', () => {
+  for (let i = 0; i < 1000; i++) {
+    const x = E.secureRandom();
+    assert.ok(x >= 0 && x < 1);
+  }
+});

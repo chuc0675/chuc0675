@@ -22,7 +22,23 @@
   const SUITS = ['♠', '♥', '♦', '♣'];
   const RANKS = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   const VALUES = { 7: 7, 8: 8, 9: 9, 10: 10, J: 10, Q: 10, K: 10, A: 11 };
-  const MAX_RAISES_PER_ROUND = 4;
+
+  /**
+   * Qoidalar konfiguratsiyasi. Hududiy variantlar shu yerda sozlanadi.
+   * Standart qiymatlar — bolgar "Svara/Svarka" varianti (32 karta, 7♣ joker).
+   */
+  const DEFAULT_RULES = Object.freeze({
+    jokerEnabled: true, // 7♣ — joker (11 ochko, istalgan mast/karta)
+    twoAcesScore: 22, // ikki tuz
+    threeSevensScore: 34, // uchta yettilik — eng kuchli
+    tripsMultiplier: 3, // uchta bir xil = 3 × qiymat
+    maxRaisesPerRound: 4,
+    raiseSteps: [1, 2, 'pot'], // ante karrasi yoki 'pot' (bank, kamida 3 ante)
+    svaraJoinRatio: 0.5, // svaraga qo'shilish narxi = bank × ratio
+    allowSvaraJoin: true,
+    maxSvaraRounds: 3, // shuncha svaradan keyin ham durang bo'lsa bank bo'linadi
+  });
+  const resolveRules = (r) => Object.freeze({ ...DEFAULT_RULES, ...(r || {}) });
 
   function createDeck() {
     const deck = [];
@@ -39,13 +55,13 @@
     return a;
   }
 
-  const isJoker = (c) => c.rank === '7' && c.suit === '♣';
-  const cardValue = (c) => (isJoker(c) ? 11 : VALUES[c.rank]);
+  const isJoker = (c, rules = DEFAULT_RULES) => rules.jokerEnabled && c.rank === '7' && c.suit === '♣';
+  const cardValue = (c, rules = DEFAULT_RULES) => (isJoker(c, rules) ? 11 : VALUES[c.rank]);
 
   /** Qo'l bahosi: { score, kind, suit? } */
-  function evaluateHand(cards) {
-    const joker = cards.some(isJoker);
-    const rest = cards.filter((c) => !isJoker(c));
+  function evaluateHand(cards, rules = DEFAULT_RULES) {
+    const joker = cards.some((c) => isJoker(c, rules));
+    const rest = cards.filter((c) => !isJoker(c, rules));
     const options = [];
 
     // Uchta bir xil (joker istalgan karta bo'la oladi)
@@ -54,14 +70,14 @@
       if (ranks.length > 0 && ranks.every((r) => r === ranks[0])) {
         const r = ranks[0];
         if (ranks.length + (joker ? 1 : 0) === 3) {
-          options.push({ score: r === '7' ? 34 : 3 * VALUES[r], kind: 'trips', rank: r });
+          options.push({ score: r === '7' ? rules.threeSevensScore : rules.tripsMultiplier * VALUES[r], kind: 'trips', rank: r });
         }
       }
     }
 
     // Ikki tuz
     const aces = rest.filter((c) => c.rank === 'A').length;
-    if (aces >= 2) options.push({ score: 22, kind: 'aces' });
+    if (aces >= 2) options.push({ score: rules.twoAcesScore, kind: 'aces' });
 
     // Mast bo'yicha yig'indi
     for (const suit of SUITS) {
@@ -74,10 +90,10 @@
     return options[0] || { score: 0, kind: 'suit' };
   }
 
-  const scoreHand = (cards) => evaluateHand(cards).score;
+  const scoreHand = (cards, rules) => evaluateHand(cards, rules).score;
 
-  function describeHand(cards) {
-    const e = evaluateHand(cards);
+  function describeHand(cards, rules) {
+    const e = evaluateHand(cards, rules);
     if (e.kind === 'trips') return e.rank === '7' ? `Uchta yettilik · ${e.score}` : `Uchta ${e.rank} · ${e.score}`;
     if (e.kind === 'aces') return `Ikki tuz · ${e.score}`;
     return `${e.suit} · ${e.score}`;
@@ -90,8 +106,26 @@
    * banklar kerak emas.
    */
   class Table {
-    constructor({ players, ante = 10, rng = Math.random }) {
-      this.players = players.map((p, i) => ({
+    constructor({ players, ante = 10, rng = Math.random, rules }) {
+      this.players = players.map((p, i) => Table.makePlayer(p, i));
+      this.rules = resolveRules(rules);
+      this.ante = ante;
+      this.rng = rng;
+      this.pot = 0;
+      this.dealer = -1;
+      this.phase = 'idle'; // idle | betting | svara | over
+      this.toAct = -1;
+      this.currentBet = 0;
+      this.raises = 0;
+      this.result = null;
+      this.svaraRound = 0;
+      this.log = [];
+      this.actions = []; // qo'l davomidagi barcha harakatlar (audit va tarix uchun)
+      this.handNo = 0;
+    }
+
+    static makePlayer(p, i = 0) {
+      return {
         ...p, // qo'shimcha maydonlar (bayroq, daraja, uslub...) saqlanadi
         id: p.id ?? i,
         name: p.name,
@@ -104,18 +138,56 @@
         bet: 0,
         acted: false,
         lastAction: '',
-      }));
-      this.ante = ante;
-      this.rng = rng;
-      this.pot = 0;
-      this.dealer = -1;
-      this.phase = 'idle'; // idle | betting | svara | over
-      this.toAct = -1;
-      this.currentBet = 0;
-      this.raises = 0;
-      this.result = null;
-      this.svaraRound = 0;
-      this.log = [];
+      };
+    }
+
+    /** Qo'l faolmi (stavkalar yoki svara qarori kutilmoqda) */
+    get handActive() {
+      return this.phase === 'betting' || this.phase === 'svara';
+    }
+
+    /** O'yinchini stolga qo'shish — keyingi qo'ldan o'ynaydi */
+    addPlayer(p) {
+      if (this.players.some((x) => x.id === p.id)) throw new Error("O'yinchi allaqachon stolda");
+      const np = Table.makePlayer(p, this.players.length);
+      this.players.push(np);
+      return np;
+    }
+
+    /** O'yinchini stoldan olib tashlash (faqat qo'lda ishtirok etmayotgan bo'lsa) */
+    removePlayer(id) {
+      const i = this.players.findIndex((x) => x.id === id);
+      if (i < 0) return null;
+      const p = this.players[i];
+      if (this.handActive && p.inHand && !p.folded) throw new Error("Qo'l davom etmoqda");
+      if (this.handActive && p.inHand) throw new Error("Qo'l tugashini kuting");
+      this.players.splice(i, 1);
+      if (this.dealer >= i) this.dealer--;
+      if (this.toAct > i) this.toAct--;
+      return p;
+    }
+
+    /** Navbatdan tashqari pas (chiqib ketish, vaqt tugashi) */
+    forceFold(id, reason = 'Pas') {
+      const i = this.players.findIndex((x) => x.id === id);
+      const p = this.players[i];
+      if (!p || this.phase !== 'betting' || !p.inHand || p.folded) return false;
+      if (i === this.toAct) {
+        this.act({ type: 'fold' });
+        p.lastAction = reason;
+        return true;
+      }
+      p.folded = true;
+      p.lastAction = reason;
+      this._record(p, { type: 'fold', forced: true });
+      this._emit(`${p.name}: pas (${reason})`);
+      const active = this.activePlayers();
+      if (active.length === 1) this._award(active, 'fold');
+      return true;
+    }
+
+    _record(p, a) {
+      this.actions.push({ playerId: p.id, svaraRound: this.svaraRound, ...a });
     }
 
     _emit(text) {
@@ -157,6 +229,9 @@
         p.chips -= this.ante;
         this.pot += this.ante;
       }
+      this.actions = [];
+      this.handNo++;
+      for (const p of seated) this._record(p, { type: 'ante', amount: this.ante });
       this._deal(seated);
       this.phase = 'betting';
       this.toAct = this._nextIndex(this.dealer, (p) => p.inHand && !p.folded);
@@ -166,11 +241,16 @@
 
     /** Svarada qo'shilish narxi */
     svaraJoinCost() {
-      return Math.ceil(this.pot / 2);
+      return Math.ceil(this.pot * this.rules.svaraJoinRatio);
     }
 
     canJoinSvara(p) {
-      return this.phase === 'svara' && !this.result.svaraPlayers.includes(p.id) && p.chips >= this.svaraJoinCost();
+      return (
+        this.rules.allowSvaraJoin &&
+        this.phase === 'svara' &&
+        !this.result.svaraPlayers.includes(p.id) &&
+        p.chips >= this.svaraJoinCost()
+      );
     }
 
     /** Svara: teng kelganlar + qo'shilganlar qayta o'ynaydi */
@@ -180,10 +260,11 @@
       const cost = this.svaraJoinCost();
       for (const id of joinIds) {
         const p = this.players.find((x) => x.id === id);
-        if (p && !ids.has(id) && p.chips >= cost) {
+        if (p && this.canJoinSvara(p) && !ids.has(id)) {
           p.chips -= cost;
           this.pot += cost;
           ids.add(id);
+          this._record(p, { type: 'svara_join', amount: cost });
           this._emit(`${p.name} svaraga qo'shildi (${cost})`);
         }
       }
@@ -218,10 +299,11 @@
       const acts = [{ type: 'fold' }];
       if (diff === 0) acts.push({ type: 'check' });
       else acts.push({ type: 'call', amount: diff });
-      if (this.raises < MAX_RAISES_PER_ROUND) {
+      if (this.raises < this.rules.maxRaisesPerRound) {
         const limit = this.maxBet();
         const seen = new Set();
-        for (const step of [this.ante, this.ante * 2, Math.max(this.pot, this.ante * 3)]) {
+        const steps = this.rules.raiseSteps.map((s) => (s === 'pot' ? Math.max(this.pot, this.ante * 3) : s * this.ante));
+        for (const step of steps) {
           const to = Math.min(this.currentBet + step, limit);
           if (to > this.currentBet && !seen.has(to)) {
             seen.add(to);
@@ -237,6 +319,7 @@
       const legal = this.legalActions();
       const match = legal.find((a) => a.type === action.type && (a.type !== 'raise' || a.to === action.to));
       if (!match) throw new Error(`Noto'g'ri harakat: ${JSON.stringify(action)}`);
+      this._record(p, { type: match.type, amount: match.amount || 0, to: match.to });
 
       switch (match.type) {
         case 'fold':
@@ -281,10 +364,13 @@
 
     _showdown() {
       const active = this.activePlayers();
-      const scored = active.map((p) => ({ p, score: scoreHand(p.cards) }));
+      const scored = active.map((p) => ({ p, score: scoreHand(p.cards, this.rules) }));
       const best = Math.max(...scored.map((s) => s.score));
       const winners = scored.filter((s) => s.score === best).map((s) => s.p);
       const scores = Object.fromEntries(scored.map((s) => [s.p.id, s.score]));
+      if (winners.length > 1 && this.svaraRound >= this.rules.maxSvaraRounds) {
+        return this._award(winners, 'split', scores);
+      }
       if (winners.length > 1) {
         this.phase = 'svara';
         this.toAct = -1;
@@ -295,15 +381,21 @@
       this._award(winners, 'showdown', scores);
     }
 
+    /** Bankni g'olib(lar)ga berish. Bo'linganda qoldiq birinchi g'olibga */
     _award(winners, how, scores = null) {
-      const w = winners[0];
       const won = this.pot;
-      w.chips += won;
+      const share = Math.floor(won / winners.length);
+      const payouts = {};
+      winners.forEach((w, i) => {
+        const amt = share + (i === 0 ? won - share * winners.length : 0);
+        w.chips += amt;
+        payouts[w.id] = amt;
+      });
       this.pot = 0;
       this.phase = 'over';
       this.toAct = -1;
-      this.result = { type: how, winners: [w.id], svaraPlayers: [], scores, pot: won };
-      this._emit(`${w.name} yutdi: ${won}`);
+      this.result = { type: how, winners: winners.map((w) => w.id), svaraPlayers: [], scores, pot: won, payouts };
+      this._emit(`${winners.map((w) => w.name).join(', ')} yutdi: ${won}`);
     }
   }
 
@@ -319,7 +411,7 @@
     const legal = table.legalActions(index);
     const has = (t) => legal.find((a) => a.type === t);
     const raises = legal.filter((a) => a.type === 'raise');
-    const score = scoreHand(p.cards);
+    const score = scoreHand(p.cards, table.rules);
     const call = has('call');
     const check = has('check');
     const r = rng();
@@ -351,7 +443,17 @@
     return table.canJoinSvara(p) && table.svaraJoinCost() <= p.chips * 0.25 && rng() < 0.4;
   }
 
+  /** Kriptografik xavfsiz RNG [0, 1) — Web Crypto (brauzer va Node 19+) */
+  function secureRandom() {
+    const a = new Uint32Array(2);
+    globalThis.crypto.getRandomValues(a);
+    return (a[0] * 2 ** 16 + (a[1] >>> 16)) / 2 ** 48;
+  }
+
   return {
+    DEFAULT_RULES,
+    resolveRules,
+    secureRandom,
     SUITS,
     RANKS,
     VALUES,
