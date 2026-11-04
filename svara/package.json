@@ -4,11 +4,15 @@
   "private": true,
   "description": "Svara karta o'yini — Telegram Mini App",
   "scripts": {
+    "start": "node server/index.js",
+    "dev": "DEV_AUTH=1 node server/index.js",
     "test": "node --test tests/*.test.js",
-    "bot": "node bot/index.js",
-    "serve": "npx --yes serve webapp"
+    "bot": "node bot/index.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "ws": "^8.22.1"
   }
 }

@@ -1,0 +1,7 @@
+node_modules/
+svara/data/
+svara/.env
+*.sqlite
+*.db
+*.db-wal
+*.db-shm

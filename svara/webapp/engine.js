@@ -218,10 +218,12 @@
       this.result = null;
     }
 
-    startHand() {
-      const seated = this.players.filter((p) => p.chips >= this.ante);
+    /** @param canPlay — qo'shimcha filtr (masalan, stoldan chiqayotganlarni o'tkazib yuborish) */
+    startHand(canPlay = () => true) {
+      const ok = (p) => p.chips >= this.ante && canPlay(p);
+      const seated = this.players.filter(ok);
       if (seated.length < 2) throw new Error("O'yin uchun kamida 2 ta o'yinchi kerak");
-      this.dealer = this._nextIndex(this.dealer, (p) => p.chips >= this.ante);
+      this.dealer = this._nextIndex(this.dealer, ok);
       this.pot = 0;
       this.svaraRound = 0;
       this._resetRound(seated);
