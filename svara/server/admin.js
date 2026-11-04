@@ -70,7 +70,8 @@ function createAdmin({ repo, db, cfg, rooms, conns, errors, startedAt, kickUser,
              FROM users WHERE (? = '' OR first_name LIKE ? OR username LIKE ? OR CAST(tg_id AS TEXT) = ?)
              ORDER BY last_seen_at DESC LIMIT 100`
           )
-          .all(q, like, like, q);
+          .all(q, like, like, q)
+          .map((u) => ({ ...u, is_admin: cfg.adminIds.includes(u.tg_id) }));
         return { items };
       },
       'POST /api/admin/ban': async (req, ip) => {

@@ -3,7 +3,13 @@
 /** Ishga tushirish: `npm start` (svara/ papkasida). Sozlamalar — .env (qarang .env.example) */
 const { loadEnvFile, buildConfig } = require('./config');
 loadEnvFile();
-const cfg = buildConfig();
+let cfg;
+try {
+  cfg = buildConfig();
+} catch (e) {
+  console.error(`[svara] sozlamalar xatosi: ${e.message} (qarang: .env.example)`);
+  process.exit(1);
+}
 const { createApp } = require('./app');
 const { startBot } = require('../bot/index.js');
 

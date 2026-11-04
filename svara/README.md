@@ -1,86 +1,77 @@
-# 🃏 Svara — Telegram Mini App
+# 🃏 Svara — Telegram Mini App (multiplayer)
 
-Klassik 3 kartali **Svara** o'yini, Telegram ichida ochiladigan Mini App sifatida.
-Kompyuter raqiblari (botlar) bilan o'ynaladi, chiplar Telegram CloudStorage'da saqlanadi.
+Klassik 3 kartali **Svara (Svarka)** o'yini Telegram ichida: real vaqtda do'stlar bilan
+yoki tez o'yin (jonli o'yinchi bo'lmasa — NPC'lar bilan). O'yin serverda boradi,
+balans serverda saqlanadi, Telegram foydalanuvchisi rasmiy imzo orqali tasdiqlanadi.
+
+> Chiplar **virtual** — haqiqiy pul, depozit yoki pul yechish yo'q.
 
 ## Imkoniyatlar
 
-- 1–5 ta raqib, 4 xil stavka (10 / 50 / 100 / 500)
-- **O'yinchi qidirish**: jonli o'yinchilar topilmasa, bo'sh joylarga NPC'lar o'tiradi.
-  NPC'lar 25 ta davlatdan (bayroq bilan), "Mehmon48213" / "Guest_921" / "Игрок 5521" kabi yangi o'yinchi nomlari
-  yoki "Sardor_99", "LuckyAnna" kabi niklar bilan; har birining darajasi, chipi va o'yin uslubi
-  (ehtiyotkor, tavakkalchi, agressiv, blefchi) har xil. Qo'llar orasida NPC'lar stolga kelib-ketib turadi.
-- To'liq Svara qoidalari: joker 7♣, ikki tuz = 22, uchta 7 = 34, durangda **svara** (bankning yarmini to'lab qo'shilish bilan)
-- Telegram integratsiyasi: foydalanuvchi ismi va rasmi, `BackButton`, haptik javob, `CloudStorage`, yopishdan oldin tasdiqlash
-- Har 4 soatda +500 chip bonus
-- Oddiy brauzerda ham ishlaydi (localStorage bilan)
+- **O'yin:** 32 karta, 7♣ joker, ikki tuz = 22, uchta 7 = 34, svara (bankning yarmini to'lab qo'shilish), qoidalar konfiguratsiyada (`DEFAULT_RULES`)
+- **Multiplayer:** WebSocket, ochiq/yopiq stollar, 6 belgili taklif kodi, Telegram taklif havolasi, tez o'yin, bo'sh joylarga NPC
+- **Server nazorati:** karta tarqatish (kriptografik RNG), navbat, ruxsat etilgan harakatlar, vaqt chegarasi, g'olib va yutuq — hammasi serverda; har bir o'yinchiga faqat o'z kartalari yuboriladi
+- **Ishonchlilik:** qayta ulanish, uzilganda kutish vaqti, takroriy harakatni rad etish, server qayta ishga tushsa stoldagi chiplar qaytariladi
+- **Profil:** statistika, g'alaba foizi, daraja/XP, o'yinlar tarixi, tranzaksiyalar, reyting
+- **Admin panel:** foydalanuvchilar, stollar, o'yinlar, shikoyatlar, audit log, cheklash
+- **Oflayn mashq:** server bo'lmasa ham NPC'lar bilan o'ynash (balansga ta'sir qilmaydi)
 
 ## Tuzilma
 
 ```
 svara/
-├── webapp/          # Mini App (statik: HTML/CSS/JS, kutubxonasiz)
-│   ├── index.html
-│   ├── style.css
-│   ├── engine.js    # o'yin mexanikasi (UI'siz, Node'da ham ishlaydi)
-│   ├── npc.js       # NPC nomlari, davlatlar va o'yin uslublari
-│   └── app.js       # interfeys + Telegram WebApp API
-├── bot/index.js     # Telegram bot (kutubxonasiz, long polling)
-└── tests/           # mexanika testlari (node:test)
+├── server/              # Node.js 22 backend
+│   ├── index.js         # ishga tushirish (server + bot)
+│   ├── app.js           # HTTP API, WebSocket, statik fayllar, xavfsizlik sarlavhalari
+│   ├── rooms.js         # stollar: state machine, taymerlar, NPC, ko'rinishlar
+│   ├── auth.js          # Telegram initData tekshiruvi, sessiyalar
+│   ├── repo.js          # DB: foydalanuvchilar, balans ledgeri, tarix
+│   ├── admin.js         # admin API (ADMIN_IDS)
+│   ├── db.js            # SQLite (node:sqlite) + migratsiyalar
+│   ├── migrations/      # SQL migratsiyalar
+│   ├── ratelimit.js
+│   └── config.js        # .env sozlamalari
+├── webapp/              # Mini App (kutubxonasiz HTML/CSS/JS)
+│   ├── engine.js        # o'yin mexanikasi — server va mijozda bir xil
+│   ├── npc.js           # NPC nomlari va uslublari
+│   ├── net.js           # REST + WebSocket mijoz
+│   ├── local.js         # oflayn mashq stoli
+│   ├── app.js           # interfeys
+│   ├── admin.html/.js   # admin panel
+│   └── config.js        # mijoz sozlamasi (serverUrl)
+├── bot/index.js         # Telegram bot (/start, deep link)
+├── tests/               # testlar
+├── docs/                # AUDIT.md, DEPLOY.md, STATUS.md
+├── .env.example
+└── Dockerfile
 ```
 
-## Ishga tushirish
+## Lokal ishga tushirish
 
-### 1. Mini App'ni joylash (HTTPS kerak)
+```bash
+cd svara
+npm ci
+cp .env.example .env     # DEV_AUTH=1, NODE_ENV ni bo'sh qoldiring
+npm run dev              # http://localhost:8080 — Telegram'siz "Mehmon" sifatida kirasiz
+```
 
-`main` ga push qilinganda `.github/workflows/svara-pages.yml` testlarni ishlatadi va
-`svara/webapp` ni GitHub Pages'ga joylaydi. Repozitoriy sozlamalarida
-**Settings → Pages → Source: GitHub Actions** ni yoqing.
-Manzil: `https://<username>.github.io/<repo>/`
-
-Mahalliy tekshirish: `npm run serve` (yoki `webapp/index.html` ni brauzerda oching).
-
-### 2. Bot yaratish
-
-1. [@BotFather](https://t.me/BotFather) → `/newbot` → tokenni oling.
-2. Botni ishga tushiring:
-
-   ```bash
-   cd svara
-   BOT_TOKEN=123456:ABC... WEBAPP_URL=https://<username>.github.io/<repo>/ npm run bot
-   ```
-
-   Bot `/start`, `/play`, `/rules` buyruqlariga javob beradi va chatdagi menyu tugmasini o'yinga bog'laydi.
-
-Botsiz ham bo'ladi: BotFather'da `/newapp` (yoki `/setmenubutton`) orqali Mini App URL'ini to'g'ridan-to'g'ri ulash mumkin.
-
-## Jonli o'yinchilar
-
-Qidiruv `webapp/app.js` dagi `findLivePlayers()` funksiyasi orqali ishlaydi. Hozircha server yo'q,
-shuning uchun u bo'sh ro'yxat qaytaradi va stol to'liq NPC'lar bilan to'ladi. Multiplayer server
-qo'shilganda shu funksiyani serverga ulash kifoya — topilgan jonli o'yinchilar o'tiradi, qolgan joylar NPC bilan to'ldiriladi.
-
-## Qoidalar
-
-| Kombinatsiya | Ochko |
-|---|---|
-| Uchta yettilik (7-7-7) | 34 |
-| Uchta tuz (A-A-A) | 33 |
-| Uchta bir xil (masalan K-K-K) | 3 × qiymat |
-| Bir mastdagi kartalar | yig'indi (maks. 33) |
-| Ikki tuz | 22 |
-
-- Qiymatlar: A=11, K/Q/J/10=10, 9=9, 8=8, 7=7.
-- **7♣ — joker**: 11 ochko, istalgan mast yoki karta o'rnida turadi.
-- Har kim ante tikadi, so'ng navbat bilan *Pas*, *O'tish/Tenglash* yoki *Oshirish* (bir raundda ko'pi bilan 4 marta oshirish).
-- Stavka eng kam chipli faol o'yinchining imkoniyatidan oshmaydi (stol limiti).
-- Ochkolar teng bo'lsa — **SVARA**: bank qoladi, teng kelganlar qayta o'ynaydi; boshqalar bankning yarmini to'lab qo'shilishi mumkin.
+Ikki xil brauzer oynasida (masalan, oddiy va inkognito) ochib, stol yaratib, kod bilan qo'shilib sinab ko'ring.
 
 ## Testlar
 
 ```bash
-cd svara && npm test
+npm test          # 46 ta: qoidalar, auth, ledger, multiplayer, qayta ulanish, ruxsatlar…
+npm run test:ui   # mobil brauzer testlari (Playwright kerak: npm i -D playwright)
 ```
 
-> Eslatma: bu mustaqil, o'quv/ko'ngilochar loyiha. Chiplar virtual — haqiqiy pul ishlatilmaydi.
-> Nomi, dizayni va grafikasi original; boshqa ilovalarning brendi yoki rasmlari ishlatilmagan.
+## Joylash
+
+Batafsil: [docs/DEPLOY.md](docs/DEPLOY.md). Qisqacha:
+1. Serverni HTTPS bilan joylang (Render / Railway / Fly.io / VPS + Docker).
+2. `.env`: `NODE_ENV=production`, `BOT_TOKEN`, `BOT_USERNAME`, `WEBAPP_URL`, `ADMIN_IDS`, `BOT_POLLING=1`.
+3. BotFather → Bot Settings → Menu Button → `WEBAPP_URL`.
+
+## Hujjatlar
+- [docs/AUDIT.md](docs/AUDIT.md) — boshlang'ich audit va reja
+- [docs/STATUS.md](docs/STATUS.md) — har bir funksiyaning holati
+- [docs/DEPLOY.md](docs/DEPLOY.md) — hostingga joylash

@@ -60,7 +60,7 @@
           <td>${u.id}<br><span class="muted">${u.tg_id}</span></td><td>${esc(u.first_name)} ${u.username ? '@' + esc(u.username) : ''}
           ${u.is_banned ? `<br><span class="pill red">cheklangan</span> <span class="muted">${esc(u.ban_reason)}</span>` : ''}</td>
           <td>${fmt(u.balance)}</td><td>${u.games_played}</td><td>${u.wins}</td><td>${fmt(u.net_won)}</td><td>${dt(u.last_seen_at)}</td>
-          <td>${u.is_banned ? `<button class="btn ok" data-unban="${u.id}">Ochish</button>` : `<button class="btn danger" data-ban="${u.id}">Cheklash</button>`}</td></tr>`));
+          <td>${u.is_admin ? '<span class="pill">admin</span>' : u.is_banned ? `<button class="btn ok" data-unban="${u.id}">Ochish</button>` : `<button class="btn danger" data-ban="${u.id}">Cheklash</button>`}</td></tr>`));
     },
     async reports() {
       const { items } = await api('/api/admin/reports');
