@@ -53,9 +53,21 @@
         <li>Ochko — bir xil mastdagi kartalar yig'indisi. Maksimum 33.</li>
         <li><b>Ikki tuz</b> = 22. <b>Uchta bir xil</b> = 3×qiymat, <b>uchta yettilik</b> = 34 (eng kuchli).</li>
         <li>Har kim ante tikadi, so'ng navbat bilan: <i>Pas</i>, <i>O'tish/Tenglash</i> yoki <i>Oshirish</i>.</li>
+        <li>Jonli o'yinchilar topilmasa, bo'sh joylarga turli davlatlardan <b>NPC o'yinchilar</b> (kompyuter) o'tiradi.</li>
         <li>Durang bo'lsa — <b>SVARA</b>: bank qoladi, teng kelganlar qayta o'ynaydi. Boshqalar bankning yarmini to'lab qo'shilishi mumkin.</li>
       </ul>
     </details>
+  </section>
+
+  <!-- QIDIRUV -->
+  <section id="search" class="screen">
+    <div class="search-box">
+      <div class="radar"><span></span><span></span><span></span><div class="radar-ico">🃏</div></div>
+      <h2 id="searchStatus">Qidirilmoqda…</h2>
+      <p id="searchMeta"></p>
+      <ul class="slots" id="searchList"></ul>
+      <button class="ghost" id="cancelSearch">Bekor qilish</button>
+    </div>
   </section>
 
   <!-- STOL -->
@@ -95,6 +107,7 @@
   </section>
 
   <script src="engine.js"></script>
+  <script src="npc.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

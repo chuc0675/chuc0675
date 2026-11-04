@@ -9,8 +9,9 @@
   const START_CHIPS = 1000;
   const BONUS_CHIPS = 500;
   const BONUS_COOLDOWN = 4 * 60 * 60 * 1000; // 4 soat
-  const BOT_NAMES = ['Aziz', 'Dilnoza', 'Sardor', 'Malika', 'Bekzod', 'Nodira', 'Jasur', 'Gulnora', 'Otabek', 'Shahlo'];
-  const BOT_COLORS = ['#8e44ad', '#c0392b', '#2980b9', '#d35400', '#16a085', '#7f8c8d', '#b03a2e', '#1f618d'];
+  const NPC = window.SvaraNPC;
+  const SEARCH_TIME = 2200; // jonli o'yinchilarni kutish (ms)
+  const NPC_CHURN = 0.18; // har qo'ldan keyin bitta NPC almashish ehtimoli
 
   /* ---------------- Telegram integratsiyasi ---------------- */
   const tgUser = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || null;
@@ -132,28 +133,81 @@
     if (me.chips < minNeed) {
       return showModal('Chip yetarli emas', `Bu stol uchun kamida ${minNeed} chip kerak. Bonus oling yoki kichikroq stavka tanlang.`, [{ text: 'OK' }]);
     }
-    startTable();
+    startSearch();
   });
 
-  /* ---------------- Stol ---------------- */
-  function makeBot(usedNames) {
-    const free = BOT_NAMES.filter((n) => !usedNames.includes(n));
-    const name = free[Math.floor(Math.random() * free.length)];
-    const mult = 20 + Math.floor(Math.random() * 60);
-    return {
-      id: 'bot-' + name,
-      name,
-      isBot: true,
-      color: BOT_COLORS[Math.floor(Math.random() * BOT_COLORS.length)],
-      chips: settings.ante * mult,
-    };
+  /* ---------------- O'yinchi qidirish ---------------- */
+  /**
+   * Jonli o'yinchilarni topish. Hozircha server yo'q, shuning uchun bo'sh
+   * ro'yxat qaytaradi. Multiplayer server qo'shilganda shu yerga ulanadi:
+   * topilgan o'yinchilar stolga o'tiradi, qolgan joylar NPC bilan to'ldiriladi.
+   */
+  function findLivePlayers(/* { seats, ante } */) {
+    return new Promise((resolve) => setTimeout(() => resolve([]), SEARCH_TIME));
   }
 
-  function startTable() {
-    const bots = [];
-    for (let i = 0; i < settings.opponents; i++) bots.push(makeBot(bots.map((b) => b.name)));
-    table = new E.Table({ players: [{ id: 'me', name: me.name, chips: me.chips }, ...bots], ante: settings.ante });
-    table.players.forEach((p, i) => { p.color = i === 0 ? '#2a6b5c' : bots[i - 1].color; p.photo = i === 0 ? me.photo : null; });
+  let searchToken = 0;
+  async function startSearch() {
+    const token = ++searchToken;
+    const seats = settings.opponents;
+    showScreen('search');
+    if (tg) tg.BackButton.show();
+    $('searchStatus').textContent = "Jonli o'yinchilar qidirilmoqda…";
+    $('searchMeta').textContent = `Stol: ${seats + 1} kishi · Ante ${fmt(settings.ante)}`;
+    const list = $('searchList');
+    list.innerHTML = '';
+    const slots = [];
+    for (let i = 0; i < seats; i++) {
+      const li = document.createElement('li');
+      li.className = 'slot empty';
+      li.innerHTML = '<div class="avatar">?</div><div class="slot-info"><b>Kutilmoqda…</b><small>&nbsp;</small></div>';
+      list.appendChild(li);
+      slots.push(li);
+    }
+
+    const live = await findLivePlayers({ seats, ante: settings.ante });
+    if (token !== searchToken) return;
+    const players = live.slice(0, seats);
+    if (players.length < seats) {
+      $('searchStatus').textContent = players.length
+        ? "Bo'sh joylar NPC o'yinchilar bilan to'ldirilmoqda…"
+        : "Jonli o'yinchi topilmadi — NPC o'yinchilar qo'shilmoqda…";
+    }
+    while (players.length < seats) {
+      await wait(250 + Math.random() * 650);
+      if (token !== searchToken) return;
+      const npc = NPC.createNPC({ ante: settings.ante, taken: [me.name, ...players.map((p) => p.name)] });
+      players.push(npc);
+      fillSlot(slots[players.length - 1], npc);
+      sfx.card();
+      haptic.tap();
+    }
+    $('searchStatus').textContent = 'Stol tayyor!';
+    await wait(600);
+    if (token !== searchToken) return;
+    startTable(players);
+  }
+
+  function fillSlot(li, p) {
+    li.className = 'slot joined';
+    const av = li.querySelector('.avatar');
+    setAvatar(av, p);
+    li.querySelector('b').innerHTML = `${escapeHtml(p.name)} <span class="flag">${p.flag || ''}</span>`;
+    li.querySelector('small').innerHTML = `${p.isNew ? '<span class="new">YANGI</span> ' : ''}★ ${p.level} · ${fmt(p.chips)} chip`;
+  }
+
+  function cancelSearch() {
+    searchToken++;
+    if (tg) tg.BackButton.hide();
+    showScreen('lobby');
+  }
+  $('cancelSearch').addEventListener('click', cancelSearch);
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  /* ---------------- Stol ---------------- */
+  function startTable(opponents) {
+    const mine = { id: 'me', name: me.name, chips: me.chips, color: '#2a6b5c', photo: me.photo };
+    table = new E.Table({ players: [mine, ...opponents], ante: settings.ante });
     showScreen('table');
     if (tg) { tg.BackButton.show(); tg.enableClosingConfirmation && tg.enableClosingConfirmation(); }
     newHand();
@@ -183,7 +237,7 @@
     } else leaveTable();
   }
   $('backBtn').addEventListener('click', confirmLeave);
-  if (tg) tg.BackButton.onClick(() => (table ? confirmLeave() : null));
+  if (tg) tg.BackButton.onClick(() => (table ? confirmLeave() : document.getElementById('search').classList.contains('active') ? cancelSearch() : null));
 
   $('soundBtn').addEventListener('click', () => {
     soundOn = !soundOn;
@@ -191,15 +245,27 @@
     store.set('sound', soundOn ? '1' : '0');
   });
 
+  function replaceSeat(p, npc) {
+    Object.assign(p, npc, { cards: [], lastAction: '', bet: 0, folded: true, inHand: false });
+  }
+
+  /** NPC'lar stolga kelib-ketib turadi: chipi tugaganlar ketadi, ba'zan kimdir almashadi */
   function refillBots() {
-    // Chipi tugagan botlar o'rniga yangi bot o'tiradi
-    table.players.forEach((p, i) => {
+    const taken = () => table.players.map((x) => x.name);
+    table.players.forEach((p) => {
       if (p.isBot && p.chips < table.ante) {
-        const b = makeBot(table.players.map((x) => x.name));
-        Object.assign(p, { id: b.id, name: b.name, chips: b.chips, color: b.color, cards: [], lastAction: '' });
-        toast(`${b.name} stolga o'tirdi`);
+        const old = p.name;
+        replaceSeat(p, NPC.createNPC({ ante: table.ante, taken: taken() }));
+        toast(`${old} chiqib ketdi · ${p.name} ${p.flag} o'tirdi`);
       }
     });
+    if (Math.random() < NPC_CHURN) {
+      const bots = table.players.filter((p) => p.isBot);
+      const p = bots[Math.floor(Math.random() * bots.length)];
+      const old = p.name;
+      replaceSeat(p, NPC.createNPC({ ante: table.ante, taken: taken() }));
+      toast(`${old} stolni tark etdi · ${p.name} ${p.flag} qo'shildi`);
+    }
   }
 
   function newHand() {
@@ -226,7 +292,7 @@
       if (p.isBot) {
         botTimer = setTimeout(() => {
           if (!table) return;
-          const a = E.botDecide(table, table.toAct);
+          const a = E.botDecide(table, table.toAct, Math.random, NPC.STYLES[p.style]);
           table.act(a);
           a.type === 'fold' ? sfx.card() : sfx.chip();
           render();
@@ -334,6 +400,8 @@
       av.className = 'avatar';
       setAvatar(av, p);
       if (i === table.dealer) av.insertAdjacentHTML('beforeend', '<span class="dealer">D</span>');
+      if (p.flag) av.insertAdjacentHTML('beforeend', `<span class="flag-badge">${p.flag}</span>`);
+      if (p.isBot) av.insertAdjacentHTML('beforeend', `<span class="lvl">${p.level}</span>`);
       s.innerHTML = `<div class="act">${p.lastAction || ''}</div>`;
       s.appendChild(av);
       s.insertAdjacentHTML('beforeend', `<div class="nm">${escapeHtml(i === 0 ? 'Siz' : p.name)}</div><div class="ch">${fmt(p.chips)}</div><div class="bet">${p.bet ? '▲ ' + fmt(p.bet) : ''}</div>`);

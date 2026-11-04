@@ -92,6 +92,7 @@
   class Table {
     constructor({ players, ante = 10, rng = Math.random }) {
       this.players = players.map((p, i) => ({
+        ...p, // qo'shimcha maydonlar (bayroq, daraja, uslub...) saqlanadi
         id: p.id ?? i,
         name: p.name,
         isBot: !!p.isBot,
@@ -306,9 +307,15 @@
     }
   }
 
-  /** Oddiy bot: kartaning kuchi + biroz tasodif */
-  function botDecide(table, index, rng = Math.random) {
+  const DEFAULT_STYLE = { foldBias: 0, raiseBias: 0, bluff: 0.08 };
+
+  /**
+   * Bot qarori: kartaning kuchi + uslub + biroz tasodif.
+   * style = { foldBias, raiseBias, bluff } (npc.js dagi STYLES)
+   */
+  function botDecide(table, index, rng = Math.random, style = DEFAULT_STYLE) {
     const p = table.players[index];
+    const st = { ...DEFAULT_STYLE, ...(style || {}) };
     const legal = table.legalActions(index);
     const has = (t) => legal.find((a) => a.type === t);
     const raises = legal.filter((a) => a.type === 'raise');
@@ -317,22 +324,25 @@
     const check = has('check');
     const r = rng();
     const pick = (i) => raises[Math.min(i, raises.length - 1)];
+    // foldBias > 0 — ehtiyotkor (chegaralar yuqoriroq), < 0 — tavakkalchi
+    const T = (x) => x + st.foldBias;
 
-    if (score >= 31) {
-      if (raises.length && r < 0.75) return pick(r < 0.3 ? 2 : 1);
+    if (score >= T(31)) {
+      if (raises.length && r < 0.75 + st.raiseBias) return pick(r < 0.3 ? 2 : 1);
       return call || check;
     }
-    if (score >= 25) {
-      if (raises.length && r < 0.35) return pick(0);
+    if (score >= T(25)) {
+      if (raises.length && r < 0.35 + st.raiseBias) return pick(0);
       return call || check;
     }
-    if (score >= 20) {
-      if (check) return raises.length && r < 0.1 ? pick(0) : check;
-      if (call.amount <= Math.max(table.ante * 2, table.pot * 0.4) || r < 0.4) return call;
+    if (raises.length && r < st.bluff) return pick(rng() < 0.7 ? 0 : 1);
+    if (score >= T(20)) {
+      if (check) return check;
+      if (call.amount <= Math.max(table.ante * 2, table.pot * 0.4) || r < 0.4 - st.foldBias * 0.05) return call;
       return has('fold');
     }
-    if (check) return raises.length && r < 0.08 ? pick(0) : check;
-    if (call.amount <= table.ante && r < 0.35) return call;
+    if (check) return check;
+    if (call.amount <= table.ante && r < 0.35 - st.foldBias * 0.05) return call;
     return has('fold');
   }
 

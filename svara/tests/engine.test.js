@@ -118,3 +118,46 @@ test('botlar bilan ko\'p qo\'l — chiplar yo\'qolmaydi', () => {
     assert.ok(t.players.every((p) => p.chips >= 0));
   }
 });
+
+const NPC = require('../webapp/npc.js');
+
+test('NPC nomlari xilma-xil: mehmon, nik va turli davlatlar', () => {
+  const npcs = Array.from({ length: 400 }, () => NPC.createNPC({ ante: 10 }));
+  const countries = new Set(npcs.map((n) => n.country));
+  assert.ok(countries.size >= 10, 'kamida 10 xil davlat');
+  assert.ok(npcs.some((n) => /^(Mehmon|Guest|Гость|Misafir|Player|Игрок|O'yinchi|Gast|Invité|Jugador)/.test(n.name)));
+  assert.ok(npcs.some((n) => n.isNew));
+  for (const n of npcs) {
+    assert.ok(n.name.length > 0 && n.flag && n.chips >= 150 && n.level >= 1);
+    assert.ok(NPC.STYLES[n.style]);
+  }
+});
+
+test('NPC stoldagi band nomni takrorlamaydi', () => {
+  let i = 0;
+  const seq = [0.5, 0.9, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1];
+  const rng = () => seq[i++ % seq.length];
+  const a = NPC.createNPC({ rng });
+  i = 0;
+  const b = NPC.createNPC({ rng: () => (i++ < 4 ? seq[i - 1] : Math.random()), taken: [a.name] });
+  assert.notEqual(a.name, b.name);
+});
+
+test('har xil uslubdagi NPC lar bilan o\'yin — chiplar saqlanadi', () => {
+  let seed = 7;
+  const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const players = Array.from({ length: 6 }, () => NPC.createNPC({ ante: 10, rng }));
+  const total = players.reduce((s, p) => s + p.chips, 0);
+  const t = new E.Table({ players, ante: 10, rng });
+  assert.equal(t.players[0].flag, players[0].flag, 'qo\'shimcha maydonlar saqlanadi');
+  for (let h = 0; h < 200; h++) {
+    if (t.players.filter((p) => p.chips >= t.ante).length < 2) break;
+    t.startHand();
+    while (t.phase !== 'over') {
+      if (t.phase === 'svara') { t.startSvara([]); continue; }
+      const p = t.players[t.toAct];
+      t.act(E.botDecide(t, t.toAct, rng, NPC.STYLES[p.style]));
+    }
+    assert.equal(t.players.reduce((s, p) => s + p.chips, 0), total);
+  }
+});

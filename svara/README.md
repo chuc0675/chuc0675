@@ -5,7 +5,11 @@ Kompyuter raqiblari (botlar) bilan o'ynaladi, chiplar Telegram CloudStorage'da s
 
 ## Imkoniyatlar
 
-- 1–5 ta bot raqib, 4 xil stavka (10 / 50 / 100 / 500)
+- 1–5 ta raqib, 4 xil stavka (10 / 50 / 100 / 500)
+- **O'yinchi qidirish**: jonli o'yinchilar topilmasa, bo'sh joylarga NPC'lar o'tiradi.
+  NPC'lar 25 ta davlatdan (bayroq bilan), "Mehmon48213" / "Guest_921" / "Игрок 5521" kabi yangi o'yinchi nomlari
+  yoki "Sardor_99", "LuckyAnna" kabi niklar bilan; har birining darajasi, chipi va o'yin uslubi
+  (ehtiyotkor, tavakkalchi, agressiv, blefchi) har xil. Qo'llar orasida NPC'lar stolga kelib-ketib turadi.
 - To'liq Svara qoidalari: joker 7♣, ikki tuz = 22, uchta 7 = 34, durangda **svara** (bankning yarmini to'lab qo'shilish bilan)
 - Telegram integratsiyasi: foydalanuvchi ismi va rasmi, `BackButton`, haptik javob, `CloudStorage`, yopishdan oldin tasdiqlash
 - Har 4 soatda +500 chip bonus
@@ -19,6 +23,7 @@ svara/
 │   ├── index.html
 │   ├── style.css
 │   ├── engine.js    # o'yin mexanikasi (UI'siz, Node'da ham ishlaydi)
+│   ├── npc.js       # NPC nomlari, davlatlar va o'yin uslublari
 │   └── app.js       # interfeys + Telegram WebApp API
 ├── bot/index.js     # Telegram bot (kutubxonasiz, long polling)
 └── tests/           # mexanika testlari (node:test)
@@ -48,6 +53,12 @@ Mahalliy tekshirish: `npm run serve` (yoki `webapp/index.html` ni brauzerda ochi
    Bot `/start`, `/play`, `/rules` buyruqlariga javob beradi va chatdagi menyu tugmasini o'yinga bog'laydi.
 
 Botsiz ham bo'ladi: BotFather'da `/newapp` (yoki `/setmenubutton`) orqali Mini App URL'ini to'g'ridan-to'g'ri ulash mumkin.
+
+## Jonli o'yinchilar
+
+Qidiruv `webapp/app.js` dagi `findLivePlayers()` funksiyasi orqali ishlaydi. Hozircha server yo'q,
+shuning uchun u bo'sh ro'yxat qaytaradi va stol to'liq NPC'lar bilan to'ladi. Multiplayer server
+qo'shilganda shu funksiyani serverga ulash kifoya — topilgan jonli o'yinchilar o'tiradi, qolgan joylar NPC bilan to'ldiriladi.
 
 ## Qoidalar
 
