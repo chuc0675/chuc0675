@@ -48,6 +48,8 @@ function buildConfig(env = process.env) {
     npcChurn: 0.15,
     npcFillSeconds: int(env.NPC_FILL_SECONDS, 8),
     disconnectGraceSec: int(env.DISCONNECT_GRACE_SEC, 60),
+    idleKickTurns: Math.max(1, int(env.IDLE_KICK_TURNS, 2)), // ketma-ket shuncha marta javob bermasa — chiqariladi
+    disconnectedTurnSeconds: int(env.DISCONNECTED_TURN_SECONDS, 8), // aloqasi uzilgan o'yinchining yurish vaqti
     antes: (env.ANTES || '10,50,100,500').split(',').map(Number).filter((n) => n > 0),
     buyInAntes: int(env.BUY_IN_ANTES, 100), // stolga o'tirganda olinadigan chip = ante × N (balansdan ko'p emas)
     staticDir: env.STATIC_DIR || path.join(__dirname, '..', 'webapp'),

@@ -227,7 +227,7 @@
         refreshProfile();
         break;
       case 'notice':
-        toast(m.message, m.code !== 'npc');
+        toast(m.message, !['npc', 'player_kicked'].includes(m.code));
         if (m.code === 'broke' || m.code === 'idle') haptic('warning');
         break;
       case 'error':

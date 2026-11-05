@@ -2,7 +2,7 @@
 
 Belgilar: ✅ ishlaydi va testdan o'tgan · 🟡 ishlab chiqilgan, test qilinmagan · 🟠 qisman · ⬜ hali yo'q
 
-Testlar: `npm test` — 46/46 o'tdi (engine, server-core, server-int), `npm run test:ui` — o'tdi
+Testlar: `npm test` — 48/48 o'tdi (engine, server-core, server-int), `npm run test:ui` — o'tdi
 (Chromium mobil emulyatsiya, 320/360/375/390/412 px). Sana: 2026-11-04.
 
 ## O'yin mexanikasi
@@ -27,7 +27,9 @@ Testlar: `npm test` — 46/46 o'tdi (engine, server-core, server-int), `npm run 
 | Boshqalarning yopiq kartalari yuborilmaydi | ✅ | integratsion + UI test |
 | Navbatdan tashqari / noto'g'ri / eskirgan harakatni rad etish | ✅ | |
 | Takroriy harakat (actionId) qayta bajarilmaydi | ✅ | |
-| Yurish vaqti, avtomatik o'tish/pas, 2 marta javobsiz — chiqarish | ✅ | |
+| Yurish vaqti, avtomatik o'tish/pas | ✅ | |
+| Faol bo'lmagan o'yinchi: `IDLE_KICK_TURNS` (2) marta javobsiz — majburiy pas, stoldan chiqarish, boshqalarga xabar | ✅ | faol bo'lmagan o'yinchi bankni yutib ketmaydi |
+| Aloqasi uzilgan o'yinchiga qisqa yurish vaqti (`DISCONNECTED_TURN_SECONDS`) | ✅ | navbat o'rtasida uzilsa ham |
 | Qayta ulanish (kartalar bilan davom etish) | ✅ | |
 | Uzilib qaytmaganda: pas, chiplar balansga qaytadi | ✅ | |
 | Ochiq / yopiq stollar, taklif kodi, kod bilan kirish | ✅ | |

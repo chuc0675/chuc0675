@@ -454,3 +454,64 @@ test('bot: /start room_KOD deep link stolga olib kiradi', () => {
   assert.equal(replyFor({ text: '/start room_<script>', chat: { id: 1 } }, 'https://x/').reply_markup.inline_keyboard[0][0].web_app.url, 'https://x/');
   assert.equal(replyFor({ text: 'salom', chat: { id: 1 } }, 'https://x/'), null);
 });
+
+/** A avtomatik javob beradi (navbati kelsa o'tish/tenglash), B umuman o'ynamaydi */
+function autoPlay(c) {
+  let stop = false;
+  (async () => {
+    while (!stop) {
+      const s = c.state;
+      if (myTurn(s)) {
+        const a = s.you.legal.find((x) => x.type === 'check') || s.you.legal.find((x) => x.type === 'call');
+        await c.request({ type: 'act', action: a, turnSeq: s.turnSeq }).catch(() => {});
+      }
+      if (s && s.you && s.you.canJoinSvara) await c.request({ type: 'svara', join: false }).catch(() => {});
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  })();
+  return () => (stop = true);
+}
+
+test('faol bo\'lmagan o\'yinchi: 2 marta javobsiz — majburiy pas, stoldan chiqariladi, boshqalarga xabar', async () => {
+  const ctx = await start({ turnSeconds: 0.25, idleKickTurns: 2, disconnectGraceSec: 30 });
+  let stopA = () => {};
+  try {
+    const { B, a, b } = await twoPlayerTable(ctx);
+    stopA = autoPlay(a);
+    const kicked = await a.waitFor((m) => m.type === 'notice' && m.code === 'player_kicked', 8000);
+    assert.match(kicked.message, /Vali/);
+    await b.waitFor((m) => m.type === 'notice' && m.code === 'idle');
+    await b.waitFor((m) => m.type === 'left', 8000);
+    stopA();
+    const db = ctx.app.db;
+    assert.ok(!db.prepare('SELECT 1 FROM room_seats WHERE user_id = ?').get(B.profile.id), 'B stoldan chiqarildi');
+    // ikkinchi javobsizlikda "o'tish" emas, majburiy pas bo'lgan
+    const forced = db.prepare("SELECT type FROM game_actions WHERE user_id = ? AND forced = 1 ORDER BY id").all(B.profile.id).map((r) => r.type);
+    assert.equal(forced[forced.length - 1], 'fold');
+    const total = db.prepare('SELECT SUM(balance) s FROM users').get().s + (db.prepare('SELECT SUM(stack) s FROM room_seats').get().s || 0);
+    assert.equal(total, 2000, 'chiplar yo\'qolmaydi');
+    assert.ok(ctx.app.repo.getUser(B.profile.id).balance > 0, 'qolgan chiplar balansga qaytdi');
+    assert.ok(db.prepare("SELECT 1 FROM audit_log WHERE action = 'idle_kick'").get());
+  } finally {
+    stopA();
+    await ctx.app.close();
+  }
+});
+
+test('aloqasi uzilgan o\'yinchi uchun qisqa yurish vaqti — stol to\'xtab qolmaydi', async () => {
+  const ctx = await start({ turnSeconds: 30, disconnectedTurnSeconds: 0.2, disconnectGraceSec: 30 });
+  let stopA = () => {};
+  try {
+    const { a, b } = await twoPlayerTable(ctx);
+    await b.waitState((s) => s.status === 'PLAYING');
+    b.ws.close();
+    stopA = autoPlay(a);
+    const t0 = Date.now();
+    await a.waitState((s) => s.status === 'ROUND_END', 6000);
+    stopA();
+    assert.ok(Date.now() - t0 < 6000, '30 soniya emas, qisqa vaqtda tugadi');
+  } finally {
+    stopA();
+    await ctx.app.close();
+  }
+});

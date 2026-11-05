@@ -220,6 +220,12 @@ class Room {
     if (!m) return;
     m.connected = false;
     m.disconnectedAt = Date.now();
+    // navbati turgan bo'lsa — qisqa vaqtdan keyin avtomatik harakat
+    const p = this.player(userId);
+    if (p && this.status === S.PLAYING && this._currentPlayer() === p) {
+      const sec = Math.min(this.cfg.turnSeconds, this.cfg.disconnectedTurnSeconds ?? 8);
+      if (!this.deadline || this.deadline - Date.now() > sec * 1000) this._schedule(sec, () => this._timeout(p));
+    }
     clearTimeout(m.graceTimer);
     m.graceTimer = setTimeout(() => {
       if (!m.connected && this.members.get(userId) === m) this.leave(userId, 'Uzildi');
@@ -320,7 +326,9 @@ class Room {
       this._schedule(think, () => this._botAct(p), false);
       this.deadline = Date.now() + this.cfg.turnSeconds * 1000; // mijozga ko'rsatish uchun
     } else {
-      this._schedule(this.cfg.turnSeconds, () => this._timeout(p));
+      // aloqasi uzilgan o'yinchi uchun qisqa vaqt — stol uni uzoq kutmaydi
+      const sec = m && !m.connected ? Math.min(this.cfg.turnSeconds, this.cfg.disconnectedTurnSeconds ?? 8) : this.cfg.turnSeconds;
+      this._schedule(sec, () => this._timeout(p));
     }
   }
 
@@ -331,24 +339,35 @@ class Room {
     this._afterAction(true);
   }
 
+  /**
+   * Yurish vaqti tugadi. 1-marta: "o'tish" (mumkin bo'lsa) yoki pas.
+   * `idleKickTurns`-marta ketma-ket: majburiy pas (faol bo'lmagan o'yinchi bankni
+   * yutib ketmasligi uchun) va qo'l oxirida stoldan chiqarish, chiplar balansga qaytadi.
+   */
   _timeout(p) {
     if (this._currentPlayer() !== p || this.table.phase !== 'betting') return;
-    const legal = this.table.legalActions();
     const m = this.members.get(p.userId);
-    if (legal.some((a) => a.type === 'check')) {
+    if (m) m.missed++;
+    const kick = m && m.missed >= (this.cfg.idleKickTurns ?? 2);
+    const legal = this.table.legalActions();
+    if (!kick && legal.some((a) => a.type === 'check')) {
       this.table.act({ type: 'check' });
       this.table.actions[this.table.actions.length - 1].forced = true;
+      p.lastAction = 'Vaqt tugadi';
     } else {
-      this.table.forceFold(p.id, 'Vaqt tugadi');
+      this.table.forceFold(p.id, kick ? 'Faol emas' : 'Vaqt tugadi');
     }
-    if (m) {
-      m.missed++;
-      if (m.missed >= 2) {
-        m.leaving = true; // ketma-ket 2 marta javob bermasa — qo'l oxirida stoldan chiqariladi
-        this.ctx.notify(p.userId, { type: 'notice', code: 'idle', message: 'Javob bermaganingiz uchun stoldan chiqarildingiz' });
-      }
+    if (kick && !m.leaving) {
+      m.leaving = true;
+      this.ctx.repo.audit(p.userId, 'idle_kick', { room: this.id, missed: m.missed });
+      this.ctx.notify(p.userId, { type: 'notice', code: 'idle', message: 'Javob bermaganingiz uchun stoldan chiqarildingiz. Chiplaringiz balansga qaytariladi.' });
+      this.notifyOthers(p.userId, { type: 'notice', code: 'player_kicked', message: `${p.name} faol bo'lmagani uchun stoldan chiqarildi` });
     }
     this._afterAction(true);
+  }
+
+  notifyOthers(exceptUserId, msg) {
+    for (const [uid, m] of this.members) if (uid !== exceptUserId && m.connected) this.ctx.notify(uid, msg);
   }
 
   /** Odam harakati: navbat, eskirganlik va idempotentlik tekshiruvi */

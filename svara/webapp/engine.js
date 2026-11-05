@@ -174,6 +174,8 @@
       if (!p || this.phase !== 'betting' || !p.inHand || p.folded) return false;
       if (i === this.toAct) {
         this.act({ type: 'fold' });
+        const rec = this.actions.filter((a) => a.playerId === p.id).pop();
+        if (rec) rec.forced = true;
         p.lastAction = reason;
         return true;
       }
