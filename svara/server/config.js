@@ -21,10 +21,10 @@ function buildConfig(env = process.env) {
     port: int(env.PORT, 8080),
     host: env.HOST || '0.0.0.0',
     dbPath: env.DB_PATH || path.join(__dirname, '..', 'data', 'svara.db'),
-    botToken: env.BOT_TOKEN || '',
-    botUsername: (env.BOT_USERNAME || '').replace(/^@/, ''),
+    botToken: (env.BOT_TOKEN || '').trim(),
+    botUsername: (env.BOT_USERNAME || '').trim().replace(/^@/, ''),
     botPolling: bool(env.BOT_POLLING, false),
-    webappUrl: env.WEBAPP_URL || '',
+    webappUrl: (env.WEBAPP_URL || '').trim(),
     adminIds: (env.ADMIN_IDS || '')
       .split(',')
       .map((s) => s.trim())

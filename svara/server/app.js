@@ -252,18 +252,29 @@ function createApp(cfg, { logger = console } = {}) {
   };
 
   function serveStatic(req, res, url) {
-    let rel = decodeURIComponent(url.pathname);
+    let rel;
+    try {
+      rel = decodeURIComponent(url.pathname).trim();
+    } catch (_) {
+      return send(res, 400, { error: 'bad_url' });
+    }
     if (rel.endsWith('/')) rel += 'index.html';
-    const file = path.normalize(path.join(cfg.staticDir, rel));
-    if (!file.startsWith(path.normalize(cfg.staticDir + path.sep))) return send(res, 403, { error: 'forbidden' });
-    fs.stat(file, (err, st) => {
-      if (err || !st.isFile()) return send(res, 404, { error: 'not_found' });
+    const root = path.normalize(cfg.staticDir + path.sep);
+    const sendFile = (file) => {
       const ext = path.extname(file);
       res.writeHead(200, {
         'Content-Type': MIME[ext] || 'application/octet-stream',
         'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300',
       });
       fs.createReadStream(file).pipe(res);
+    };
+    const file = path.normalize(path.join(cfg.staticDir, rel));
+    if (!file.startsWith(root)) return send(res, 403, { error: 'forbidden' });
+    fs.stat(file, (err, st) => {
+      if (!err && st.isFile()) return sendFile(file);
+      // kengaytmasiz yo'l (masalan Mini App URL'i noto'g'ri yozilgan) — bosh sahifa
+      if (!path.extname(rel)) return sendFile(path.join(root, 'index.html'));
+      send(res, 404, { error: 'not_found' });
     });
   }
 

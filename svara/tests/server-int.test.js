@@ -155,8 +155,12 @@ test('multiplayer: ikki o\'yinchi, yashirin kartalar sizmaydi, chiplar saqlanadi
     const meA = sa.players.find((p) => p.id === sa.you.id);
     assert.equal(meA.cards.length, 3, 'o\'z kartalari ko\'rinadi');
     assert.ok(Number.isInteger(meA.score));
-    await playOut([a, b]);
-    await a.waitState((s) => s.status === 'ROUND_END' || s.status === 'FINISHED' || s.status === 'READY' || s.handNo > 1);
+    // qo'l bazaga yozilguncha o'ynaymiz (durang bo'lsa svara davom etadi)
+    const gamesSaved = () => ctx.app.db.prepare('SELECT COUNT(*) c FROM games').get().c;
+    for (let i = 0; i < 100 && gamesSaved() === 0; i++) {
+      await playOut([a, b]);
+      await new Promise((r) => setTimeout(r, 50));
+    }
 
     // B ga yuborilgan BARCHA xabarlarda A ning kartalari faqat showdownda bo'lishi mumkin
     const aId = 'u' + A.profile.id;
@@ -400,6 +404,11 @@ test('xatoliklarda ichki tafsilotlar chiqmaydi; statik fayllarda path traversal 
     const j = await bad.json();
     assert.equal(bad.status, 400);
     assert.ok(!JSON.stringify(j).includes('at '));
+    assert.equal((await fetch(ctx.base + '/%E0')).status, 400, 'noto\'g\'ri kodlangan URL serverni yiqitmaydi');
+    const spa = await fetch(ctx.base + '/biror%20sahifa');
+    assert.equal(spa.status, 200, 'kengaytmasiz yo\'l bosh sahifani qaytaradi');
+    assert.ok((await spa.text()).includes('<title>Svara</title>'));
+    assert.equal((await fetch(ctx.base + '/yoq.js')).status, 404);
     const idx = await fetch(ctx.base + '/');
     assert.equal(idx.status, 200);
     assert.ok(idx.headers.get('content-security-policy').includes("frame-ancestors"));
