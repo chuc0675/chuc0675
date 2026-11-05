@@ -11,7 +11,7 @@
     "test:ui": "node tests/ui.e2e.js"
   },
   "engines": {
-    "node": ">=22.5"
+    "node": "22.x"
   },
   "dependencies": {
     "ws": "^8.22.1"
